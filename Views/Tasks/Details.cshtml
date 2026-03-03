@@ -1,0 +1,37 @@
+@model TimeTrackerWeb.Domain.TaskItem
+@{
+    var active = ViewBag.ActiveEntry as TimeTrackerWeb.Domain.TimeEntry;
+    bool isThisActive = active != null && active.TaskItemId == Model.Id;
+    bool hasAnyActive = active != null;
+}
+
+<h2>Задача: @Model.Title</h2>
+<p>Проєкт: <a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.Project?.Name</a></p>
+
+<form asp-action="Start" method="post" style="display:inline;">
+    <input type="hidden" name="taskId" value="@Model.Id" />
+    <button type="submit" @(hasAnyActive ? "disabled" : "")>Start</button>
+</form>
+
+<form asp-action="Stop" method="post" style="display:inline;">
+    <input type="hidden" name="taskId" value="@Model.Id" />
+    <button type="submit" @(!isThisActive ? "disabled" : "")>Stop</button>
+</form>
+
+@if (hasAnyActive)
+{
+    <p><b>Активний таймер:</b> TaskId=@active!.TaskItemId (старт: @active.StartTimeUtc.ToLocalTime())</p>
+}
+
+<h3>Останні записи</h3>
+<table>
+    <tr><th>Start</th><th>End</th><th>Тривалість</th></tr>
+@foreach (var e in Model.TimeEntries.OrderByDescending(x => x.Id).Take(30))
+{
+    <tr>
+        <td>@e.StartTimeUtc.ToLocalTime()</td>
+        <td>@(e.EndTimeUtc?.ToLocalTime().ToString() ?? "—")</td>
+        <td>@TimeSpan.FromSeconds(e.DurationSeconds).ToString(@"hh\:mm\:ss")</td>
+    </tr>
+}
+</table>

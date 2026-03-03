@@ -1,0 +1,17 @@
+@model List<TimeTrackerWeb.Domain.Project>
+
+<h2>Проєкти</h2>
+
+<form asp-action="Create" method="post" style="margin-bottom:12px;">
+    <input name="name" placeholder="Назва проєкту" />
+    <button type="submit">Додати</button>
+</form>
+
+<ul>
+@foreach (var p in Model)
+{
+    <li>
+        <a asp-action="Details" asp-route-id="@p.Id">[@p.Id] @p.Name</a>
+    </li>
+}
+</ul>

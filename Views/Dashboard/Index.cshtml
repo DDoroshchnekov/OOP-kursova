@@ -1,0 +1,183 @@
+@model TimeTrackerWeb.Controllers.DashboardController.DashboardVm
+@{
+    var active = Model.ActiveEntry;
+    bool isRunning = active != null;
+    int? runningTaskId = active?.TaskItemId;
+}
+
+<div class="container" style="max-width:1100px; margin-top:20px;">
+    <h2>TimeTracker</h2>
+
+    <div style="display:flex; gap:16px; margin-top:16px;">
+        <!-- LEFT -->
+        <div style="width:35%; border:1px solid #ddd; padding:12px; border-radius:10px;">
+            <h4>Проєкти</h4>
+
+            <form asp-controller="Projects" asp-action="Create" method="post" style="display:flex; gap:8px; margin-bottom:10px;">
+                <input name="name" class="form-control" placeholder="Назва проєкту" />
+                <button class="btn btn-primary" type="submit">Додати</button>
+            </form>
+
+            @if (Model.Projects.Count == 0)
+            {
+                <p>Додай перший проєкт.</p>
+            }
+            else
+            {
+                @foreach (var p in Model.Projects)
+                {
+                    var selected = Model.SelectedProject?.Id == p.Id;
+                    <div style="padding:6px 8px; border-radius:8px; background:@(selected ? "#eaf2ff" : "transparent");">
+                        <a href="/Dashboard?projectId=@p.Id" style="text-decoration:none;">
+                            <b>[@p.Id]</b> @p.Name
+                        </a>
+                    </div>
+                }
+            }
+
+            <hr />
+
+            <h4>Задачі</h4>
+
+            @if (Model.SelectedProject == null)
+            {
+                <p>Обери/створи проєкт.</p>
+            }
+            else
+            {
+                <form asp-controller="Tasks" asp-action="Create" method="post" style="display:flex; gap:8px; margin-bottom:10px;">
+                    <input type="hidden" name="projectId" value="@Model.SelectedProject.Id" />
+                    <input name="title" class="form-control" placeholder="Назва задачі" />
+                    <button class="btn btn-outline-primary" type="submit">Додати</button>
+                </form>
+
+                @if (Model.SelectedProject.Tasks.Count == 0)
+                {
+                    <p>Додай першу задачу.</p>
+                }
+                else
+                {
+                    @foreach (var t in Model.SelectedProject.Tasks.OrderByDescending(x => x.Id))
+                    {
+                        var selectedTask = Model.SelectedTask?.Id == t.Id;
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:8px; background:@(selectedTask ? "#f3f3f3" : "transparent");">
+                            <a href="/Dashboard?projectId=@Model.SelectedProject.Id&taskId=@t.Id" style="text-decoration:none;">
+                                <b>[@t.Id]</b> @t.Title
+                            </a>
+                            @if (isRunning && runningTaskId == t.Id)
+                            {
+                                <span class="badge bg-success">RUN</span>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+
+        <!-- RIGHT -->
+        <div style="width:65%; border:1px solid #ddd; padding:12px; border-radius:10px;">
+            <h4>Таймер</h4>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; border:1px solid #eee; border-radius:12px;">
+                <div>
+                    <div style="font-size:42px; font-weight:700;" id="timer">00:00:00</div>
+                    <div>
+                        @if (isRunning)
+                        {
+                            <span class="badge bg-success">Running</span>
+                            <span style="margin-left:8px;">Старт: @active!.StartTimeUtc.ToLocalTime()</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Stopped</span>
+                        }
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:8px;">
+                    <form asp-action="Start" method="post">
+                        <input type="hidden" name="taskId" value="@(Model.SelectedTask?.Id ?? 0)" />
+                        <button class="btn btn-success btn-lg" type="submit" @(isRunning || Model.SelectedTask == null ? "disabled" : "")>Start</button>
+                    </form>
+
+                    <form asp-action="Stop" method="post">
+                        <input type="hidden" name="projectId" value="@(Model.SelectedProject?.Id)" />
+                        <input type="hidden" name="taskId" value="@(Model.SelectedTask?.Id)" />
+                        <button class="btn btn-danger btn-lg" type="submit" @(!isRunning ? "disabled" : "")>Stop</button>
+                    </form>
+                </div>
+            </div>
+
+            <h4 style="margin-top:16px;">Останні записи</h4>
+            @if (Model.SelectedTask == null)
+            {
+                <p>Обери задачу зліва.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Start</th><th>End</th><th>Тривалість</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in Model.RecentEntries)
+                    {
+                        <tr>
+                            <td>@e.StartTimeUtc.ToLocalTime()</td>
+                            <td>@(e.EndTimeUtc?.ToLocalTime().ToString() ?? "—")</td>
+                            <td>@TimeSpan.FromSeconds(e.DurationSeconds).ToString(@"hh\:mm\:ss")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+
+            <h4 style="margin-top:16px;">Today Report</h4>
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>Задача</th><th>Час</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.TodayReport)
+                {
+                    <tr>
+                        <td>@r.TaskTitle</td>
+                        <td>@TimeSpan.FromSeconds(r.Seconds).ToString(@"hh\:mm\:ss")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    const isRunning = @(isRunning ? "true" : "false");
+
+    // ВАЖЛИВО: даємо в JS вже ЛОКАЛЬНИЙ час без "Z", щоб не було +2 години
+    const startLocal = "@(isRunning ? active!.StartTimeUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm:ss") : "")";
+
+    function pad(n){ return n.toString().padStart(2,'0'); }
+    function fmt(sec){
+        const h = Math.floor(sec/3600);
+        const m = Math.floor((sec%3600)/60);
+        const s = sec%60;
+        return `${pad(h)}:${pad(m)}:${pad(s)}`;
+    }
+
+    const el = document.getElementById('timer');
+    if(!el) return;
+
+    if(!isRunning){ el.textContent = "00:00:00"; return; }
+
+    const start = new Date(startLocal);
+    function tick(){
+        const now = new Date();
+        const sec = Math.max(0, Math.floor((now - start)/1000));
+        el.textContent = fmt(sec);
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>

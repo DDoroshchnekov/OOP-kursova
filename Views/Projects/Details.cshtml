@@ -1,0 +1,24 @@
+@model TimeTrackerWeb.Domain.Project
+
+<h2>Проєкт: @Model.Name</h2>
+
+<form asp-controller="Tasks" asp-action="Create" method="post" style="margin-bottom:12px;">
+    <input type="hidden" name="projectId" value="@Model.Id" />
+    <input name="title" placeholder="Назва задачі" />
+    <button type="submit">Додати задачу</button>
+</form>
+
+<h3>Задачі</h3>
+<ul>
+@foreach (var t in Model.Tasks.OrderByDescending(x => x.Id))
+{
+    <li>
+        <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id">
+            [@t.Id] @t.Title
+        </a>
+    </li>
+}
+</ul>
+
+<p><a asp-controller="Tasks" asp-action="ReportToday">Звіт за сьогодні</a></p>
+<p><a asp-action="Index">← Назад</a></p>
