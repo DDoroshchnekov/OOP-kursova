@@ -1,114 +1,58 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TimeTrackerWeb.Data;
-using TimeTrackerWeb.Domain;
 
-namespace TimeTrackerWeb.Controllers;
-
-public class DashboardController : Controller
+namespace TimeTrackerWeb.Controllers
 {
-    private readonly AppDbContext _db;
-    public DashboardController(AppDbContext db) => _db = db;
-
-    public async Task<IActionResult> Index(int? projectId = null, int? taskId = null)
+    [Authorize]
+    public class DashboardController : Controller
     {
-        var projects = await _db.Projects
-            .Include(p => p.Tasks)
-            .OrderByDescending(p => p.Id)
-            .ToListAsync();
+        private readonly AppDbContext _context;
 
-        Project? selectedProject = null;
-        TaskItem? selectedTask = null;
-
-        if (projects.Count > 0)
+        public DashboardController(AppDbContext context)
         {
-            selectedProject = projectId != null
-                ? projects.FirstOrDefault(p => p.Id == projectId)
-                : projects.First();
-
-            if (selectedProject != null && selectedProject.Tasks.Count > 0)
-            {
-                selectedTask = taskId != null
-                    ? selectedProject.Tasks.FirstOrDefault(t => t.Id == taskId)
-                    : selectedProject.Tasks.OrderByDescending(t => t.Id).First();
-            }
+            _context = context;
         }
 
-        var active = await _db.TimeEntries
-            .Include(e => e.TaskItem)
-            .ThenInclude(t => t.Project)
-            .FirstOrDefaultAsync(e => e.EndTimeUtc == null);
+        private string? GetUserId()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier);
+        }
 
-        var recent = selectedTask == null
-            ? new List<TimeEntry>()
-            : await _db.TimeEntries
-                .Where(e => e.TaskItemId == selectedTask.Id)
-                .OrderByDescending(e => e.Id)
-                .Take(30)
+        public async Task<IActionResult> Index()
+        {
+            var userId = GetUserId();
+            if (userId == null) return Challenge();
+
+            var projectsCount = await _context.Projects
+                .CountAsync(p => p.UserId == userId);
+
+            var tasksCount = await _context.Tasks
+                .CountAsync(t => t.UserId == userId);
+
+            var activeTasksCount = await _context.Tasks
+                .CountAsync(t => t.UserId == userId && t.IsActive);
+
+            var totalSeconds = await _context.TimeEntries
+                .Where(te => te.UserId == userId && te.EndTimeUtc != null)
+                .SumAsync(te => (int?)te.DurationSeconds) ?? 0;
+
+            var recentEntries = await _context.TimeEntries
+                .Include(te => te.TaskItem)
+                    .ThenInclude(t => t!.Project)
+                .Where(te => te.UserId == userId)
+                .OrderByDescending(te => te.StartTimeUtc)
+                .Take(10)
                 .ToListAsync();
 
-        var fromUtc = DateTime.Today.ToUniversalTime();
-        var today = await _db.TimeEntries
-            .Include(e => e.TaskItem)
-            .Where(e => e.EndTimeUtc != null && e.StartTimeUtc >= fromUtc)
-            .ToListAsync();
+            ViewBag.ProjectsCount = projectsCount;
+            ViewBag.TasksCount = tasksCount;
+            ViewBag.ActiveTasksCount = activeTasksCount;
+            ViewBag.TotalSeconds = totalSeconds;
 
-        var report = today
-            .GroupBy(e => e.TaskItem!.Title)
-            .Select(g => new ReportRow(g.Key, g.Sum(x => x.DurationSeconds)))
-            .OrderByDescending(x => x.Seconds)
-            .ToList();
-
-        return View(new DashboardVm(projects, selectedProject, selectedTask, active, recent, report));
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Start(int taskId)
-    {
-        var already = await _db.TimeEntries.FirstOrDefaultAsync(e => e.EndTimeUtc == null);
-        if (already == null)
-        {
-            _db.TimeEntries.Add(new TimeEntry
-            {
-                TaskItemId = taskId,
-                StartTimeUtc = DateTime.UtcNow
-            });
-            await _db.SaveChangesAsync();
+            return View(recentEntries);
         }
-
-        // Повертаємось на Dashboard з вибраною задачею
-        var task = await _db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId);
-        return RedirectToAction(nameof(Index), new { projectId = task?.ProjectId, taskId = taskId });
     }
-
-    [HttpPost]
-    public async Task<IActionResult> Stop(int? projectId = null, int? taskId = null)
-    {
-        var active = await _db.TimeEntries.FirstOrDefaultAsync(e => e.EndTimeUtc == null);
-        if (active != null)
-        {
-            active.EndTimeUtc = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-            taskId ??= active.TaskItemId;
-        }
-
-        if (projectId == null && taskId != null)
-        {
-            var task = await _db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId);
-            projectId = task?.ProjectId;
-        }
-
-        return RedirectToAction(nameof(Index), new { projectId = projectId, taskId = taskId });
-    }
-
-    public record ReportRow(string TaskTitle, long Seconds);
-
-    public record DashboardVm(
-        List<Project> Projects,
-        Project? SelectedProject,
-        TaskItem? SelectedTask,
-        TimeEntry? ActiveEntry,
-        List<TimeEntry> RecentEntries,
-        List<ReportRow> TodayReport
-    );
 }

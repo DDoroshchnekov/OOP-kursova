@@ -1,28 +1,17 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TimeTrackerWeb.Domain;
 
-namespace TimeTrackerWeb.Data;
-
-public class AppDbContext : DbContext
+namespace TimeTrackerWeb.Data
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
-    public DbSet<Project> Projects => Set<Project>();
-    public DbSet<TaskItem> Tasks => Set<TaskItem>();
-    public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public class AppDbContext : IdentityDbContext<ApplicationUser>
     {
-        modelBuilder.Entity<Project>()
-            .HasMany(p => p.Tasks)
-            .WithOne(t => t.Project!)
-            .HasForeignKey(t => t.ProjectId)
-            .OnDelete(DeleteBehavior.Cascade);
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        {
+        }
 
-        modelBuilder.Entity<TaskItem>()
-            .HasMany(t => t.TimeEntries)
-            .WithOne(e => e.TaskItem!)
-            .HasForeignKey(e => e.TaskItemId)
-            .OnDelete(DeleteBehavior.Cascade);
+        public DbSet<Project> Projects { get; set; }
+        public DbSet<TaskItem> Tasks { get; set; }
+        public DbSet<TimeEntry> TimeEntries { get; set; }
     }
 }

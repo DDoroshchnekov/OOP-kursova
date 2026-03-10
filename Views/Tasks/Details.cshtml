@@ -1,37 +1,113 @@
 @model TimeTrackerWeb.Domain.TaskItem
+
 @{
-    var active = ViewBag.ActiveEntry as TimeTrackerWeb.Domain.TimeEntry;
-    bool isThisActive = active != null && active.TaskItemId == Model.Id;
-    bool hasAnyActive = active != null;
+    ViewData["Title"] = "Деталі задачі";
+
+    string FormatSeconds(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    var runningEntry = Model.TimeEntries?
+        .Where(e => e.EndTimeUtc == null)
+        .OrderByDescending(e => e.StartTimeUtc)
+        .FirstOrDefault();
+
+    var initialSeconds = 0;
+    if (runningEntry != null)
+    {
+        initialSeconds = (int)(DateTime.UtcNow - runningEntry.StartTimeUtc).TotalSeconds;
+    }
 }
 
-<h2>Задача: @Model.Title</h2>
-<p>Проєкт: <a asp-controller="Projects" asp-action="Details" asp-route-id="@Model.ProjectId">@Model.Project?.Name</a></p>
+<div class="container mt-4">
+    <h2 class="mb-3">Задача: @Model.Title</h2>
 
-<form asp-action="Start" method="post" style="display:inline;">
-    <input type="hidden" name="taskId" value="@Model.Id" />
-    <button type="submit" @(hasAnyActive ? "disabled" : "")>Start</button>
-</form>
+    <div class="mb-3">
+        <strong>Проєкт:</strong> @Model.Project?.Name
+    </div>
 
-<form asp-action="Stop" method="post" style="display:inline;">
-    <input type="hidden" name="taskId" value="@Model.Id" />
-    <button type="submit" @(!isThisActive ? "disabled" : "")>Stop</button>
-</form>
+    <div class="card p-3 mb-4">
+        <h4>Таймер</h4>
 
-@if (hasAnyActive)
-{
-    <p><b>Активний таймер:</b> TaskId=@active!.TaskItemId (старт: @active.StartTimeUtc.ToLocalTime())</p>
-}
+        @if (Model.IsActive && runningEntry != null)
+        {
+            <div class="mb-3">
+                <span id="timerDisplay" style="font-size: 32px; font-weight: bold;">
+                    @FormatSeconds(initialSeconds)
+                </span>
+            </div>
 
-<h3>Останні записи</h3>
-<table>
-    <tr><th>Start</th><th>End</th><th>Тривалість</th></tr>
-@foreach (var e in Model.TimeEntries.OrderByDescending(x => x.Id).Take(30))
-{
-    <tr>
-        <td>@e.StartTimeUtc.ToLocalTime()</td>
-        <td>@(e.EndTimeUtc?.ToLocalTime().ToString() ?? "—")</td>
-        <td>@TimeSpan.FromSeconds(e.DurationSeconds).ToString(@"hh\:mm\:ss")</td>
-    </tr>
-}
-</table>
+            <form asp-action="Stop" method="post">
+                <input type="hidden" name="taskId" value="@Model.Id" />
+                <button type="submit" class="btn btn-danger">Stop</button>
+            </form>
+
+            <script>
+                let seconds = @initialSeconds;
+
+                function formatTime(totalSeconds) {
+                    const h = Math.floor(totalSeconds / 3600);
+                    const m = Math.floor((totalSeconds % 3600) / 60);
+                    const s = totalSeconds % 60;
+
+                    return String(h).padStart(2, '0') + ":" +
+                           String(m).padStart(2, '0') + ":" +
+                           String(s).padStart(2, '0');
+                }
+
+                setInterval(function () {
+                    seconds++;
+                    document.getElementById("timerDisplay").textContent = formatTime(seconds);
+                }, 1000);
+            </script>
+        }
+        else
+        {
+            <div class="mb-3">
+                <span style="font-size: 32px; font-weight: bold;">00:00:00</span>
+            </div>
+
+            <form asp-action="Start" method="post">
+                <input type="hidden" name="taskId" value="@Model.Id" />
+                <button type="submit" class="btn btn-success">Start</button>
+            </form>
+        }
+    </div>
+
+    <div class="card p-3">
+        <h4 class="mb-3">Записи часу</h4>
+
+        @if (Model.TimeEntries != null && Model.TimeEntries.Any())
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Початок</th>
+                        <th>Кінець</th>
+                        <th>Тривалість</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.TimeEntries.OrderByDescending(e => e.StartTimeUtc))
+                    {
+                        <tr>
+                            <td>@entry.StartTimeUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</td>
+                            <td>
+                                @(entry.EndTimeUtc.HasValue
+                                    ? entry.EndTimeUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
+                                    : "Активний")
+                            </td>
+                            <td>@FormatSeconds(entry.DurationSeconds)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>Записів часу ще немає.</p>
+        }
+    </div>
+</div>

@@ -1,12 +1,17 @@
-namespace TimeTrackerWeb.Domain;
-
-public class TaskItem
+namespace TimeTrackerWeb.Domain
 {
-    public int Id { get; set; }
-    public int ProjectId { get; set; }
-    public string Title { get; set; } = "";
-    public bool IsActive { get; set; } = true;
+    public class TaskItem
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
 
-    public Project? Project { get; set; }
-    public List<TimeEntry> TimeEntries { get; set; } = new();
+        public int ProjectId { get; set; }
+        public Project? Project { get; set; }
+
+        public bool IsActive { get; set; } = false;
+
+        public string UserId { get; set; } = string.Empty;
+
+        public List<TimeEntry> TimeEntries { get; set; } = new();
+    }
 }

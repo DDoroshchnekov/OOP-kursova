@@ -1,0 +1,61 @@
+@model List<TimeTrackerWeb.Domain.TimeEntry>
+
+@{
+    ViewData["Title"] = "Звіт за сьогодні";
+
+    string FormatSeconds(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+    }
+
+    var totalSeconds = Model.Sum(x => x.DurationSeconds);
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Звіт за сьогодні</h2>
+
+    <div class="card p-3 mb-4">
+        <h4>Загальний час за сьогодні</h4>
+        <p style="font-size: 28px; font-weight: bold;">@FormatSeconds(totalSeconds)</p>
+    </div>
+
+    <div class="card p-3">
+        <h4 class="mb-3">Усі записи</h4>
+
+        @if (Model != null && Model.Any())
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Проєкт</th>
+                        <th>Задача</th>
+                        <th>Початок</th>
+                        <th>Кінець</th>
+                        <th>Тривалість</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model)
+                    {
+                        <tr>
+                            <td>@entry.TaskItem?.Project?.Name</td>
+                            <td>@entry.TaskItem?.Title</td>
+                            <td>@entry.StartTimeUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</td>
+                            <td>
+                                @(entry.EndTimeUtc.HasValue
+                                    ? entry.EndTimeUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
+                                    : "Активний")
+                            </td>
+                            <td>@FormatSeconds(entry.DurationSeconds)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>За сьогодні записів немає.</p>
+        }
+    </div>
+</div>

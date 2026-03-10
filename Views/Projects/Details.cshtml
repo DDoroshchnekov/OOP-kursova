@@ -1,24 +1,86 @@
 @model TimeTrackerWeb.Domain.Project
 
-<h2>Проєкт: @Model.Name</h2>
-
-<form asp-controller="Tasks" asp-action="Create" method="post" style="margin-bottom:12px;">
-    <input type="hidden" name="projectId" value="@Model.Id" />
-    <input name="title" placeholder="Назва задачі" />
-    <button type="submit">Додати задачу</button>
-</form>
-
-<h3>Задачі</h3>
-<ul>
-@foreach (var t in Model.Tasks.OrderByDescending(x => x.Id))
-{
-    <li>
-        <a asp-controller="Tasks" asp-action="Details" asp-route-id="@t.Id">
-            [@t.Id] @t.Title
-        </a>
-    </li>
+@{
+    ViewData["Title"] = "Деталі проєкту";
 }
-</ul>
 
-<p><a asp-controller="Tasks" asp-action="ReportToday">Звіт за сьогодні</a></p>
-<p><a asp-action="Index">← Назад</a></p>
+<div class="container mt-4">
+
+    <h2 class="page-title">Проєкт: @Model.Name</h2>
+
+    <div class="card-box">
+        <form asp-controller="Tasks" asp-action="Create" method="post" class="form-row">
+            <input type="hidden" name="projectId" value="@Model.Id" />
+
+            <input type="text"
+                   name="title"
+                   placeholder="Назва задачі"
+                   required />
+
+            <button type="submit" class="btn-custom btn-primary-custom">
+                Додати задачу
+            </button>
+        </form>
+
+        <form asp-controller="Projects" asp-action="Delete" method="post" class="mt-3">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn-custom btn-danger-custom"
+                    onclick="return confirm('Видалити проєкт разом з усіма задачами і записами часу?')">
+                Видалити проєкт
+            </button>
+        </form>
+    </div>
+
+    <div class="card-box">
+
+        <h3 class="section-title">Задачі</h3>
+
+        @if (Model.Tasks != null && Model.Tasks.Any())
+        {
+            <ul class="task-list">
+                @foreach (var task in Model.Tasks)
+                {
+                    <li class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <a asp-controller="Tasks"
+                           asp-action="Details"
+                           asp-route-id="@task.Id"
+                           class="task-link">
+                            @task.Title
+                        </a>
+
+                        <form asp-controller="Tasks" asp-action="Delete" method="post" style="margin:0;">
+                            <input type="hidden" name="id" value="@task.Id" />
+                            <button type="submit"
+                                    class="btn-custom btn-danger-custom"
+                                    onclick="return confirm('Видалити цю задачу?')">
+                                Видалити
+                            </button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>Задач поки немає.</p>
+        }
+
+        <div class="mt-3">
+            <a asp-controller="Tasks"
+               asp-action="ReportToday"
+               class="action-link">
+                Звіт за сьогодні
+            </a>
+
+            <br /><br />
+
+            <a asp-controller="Projects"
+               asp-action="Index"
+               class="action-link">
+                Назад
+            </a>
+        </div>
+
+    </div>
+
+</div>
