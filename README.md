@@ -1,2 +1,2 @@
-## System Architecture
+## UML
 ![UML Diagram](screenshots/UML.png)
