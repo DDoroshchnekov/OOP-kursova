@@ -1,17 +1,60 @@
 @model List<TimeTrackerWeb.Domain.Project>
 
-<h2>Проєкти</h2>
-
-<form asp-action="Create" method="post" style="margin-bottom:12px;">
-    <input name="name" placeholder="Назва проєкту" />
-    <button type="submit">Додати</button>
-</form>
-
-<ul>
-@foreach (var p in Model)
-{
-    <li>
-        <a asp-action="Details" asp-route-id="@p.Id">[@p.Id] @p.Name</a>
-    </li>
+@{
+    ViewData["Title"] = "Проєкти";
 }
-</ul>
+
+<div class="projects-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Мої проєкти</h1>
+            <p class="page-subtitle">Створюй проєкти та керуй завданнями у своєму тайм-трекері</p>
+        </div>
+    </div>
+
+    <div class="card-box project-form-card">
+        <form asp-action="Create" method="post" class="project-form">
+            @Html.AntiForgeryToken()
+            <input name="name" class="project-input" placeholder="Введіть назву проєкту" />
+            <button type="submit" class="btn-custom btn-primary-custom">Додати</button>
+        </form>
+    </div>
+
+    @if (Model != null && Model.Any())
+    {
+        <div class="projects-grid">
+            @foreach (var p in Model)
+            {
+                <div class="project-card">
+                    <div class="project-card-body">
+                        <div class="project-info">
+                            <h3 class="project-name">@p.Name</h3>
+                            <p class="project-meta">ID проєкту: @p.Id</p>
+                        </div>
+
+                        <div class="project-actions">
+                            <a asp-action="Details" asp-route-id="@p.Id" class="btn-custom btn-view-custom">
+                                Відкрити
+                            </a>
+
+                            <form asp-action="Delete" method="post" onsubmit="return confirm('Видалити проєкт &quot;@p.Name&quot;?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button type="submit" class="btn-custom btn-danger-custom">
+                                    Видалити
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state card-box">
+            <h3>Поки що немає жодного проєкту</h3>
+            <p>Створи перший проєкт через форму вище.</p>
+        </div>
+    }
+</div>
